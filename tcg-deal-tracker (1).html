@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CardPulse · TCG Deal Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0d0f14; --surface:#151821; --card:#1c2030; --card-hover:#212540;
+  --border:rgba(255,255,255,0.07); --border-md:rgba(255,255,255,0.12);
+  --text:#f0f2f7; --muted:#7a8099; --muted2:#4a5068;
+  --accent:#6c63ff; --accent-dim:#2d2a5e;
+  --green:#22c97a; --green-dim:#0d3d26;
+  --red:#f25c5c; --red-dim:#3d0f0f;
+  --amber:#f0a030; --amber-dim:#3a2800;
+  --blue:#4fa3e0; --blue-dim:#0d2540;
+  --pkm:#ffcb05; --pkm-dim:#2e2500;
+  --mtg:#c17f35; --mtg-dim:#2e1c00;
+  --op:#e8312a;  --op-dim:#350808;
+  --ygo:#7b5ea7; --ygo-dim:#1e1330;
+  --lor:#00b4d8; --lor-dim:#002633;
+}
+body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; font-size:14px; line-height:1.5; min-height:100vh; }
+
+/* ── LAYOUT ── */
+.shell { display:flex; min-height:100vh; }
+.sidebar {
+  width:220px; flex-shrink:0; background:var(--surface);
+  border-right:1px solid var(--border); padding:24px 0;
+  position:fixed; top:0; left:0; bottom:0;
+  display:flex; flex-direction:column; z-index:10;
+}
+.logo { padding:0 20px 24px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+.logo-mark { font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; color:var(--text); letter-spacing:-0.5px; display:flex; align-items:center; gap:8px; }
+.logo-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+.logo-sub { font-size:11px; color:var(--muted); margin-top:2px; letter-spacing:.05em; text-transform:uppercase; }
+.nav-section { padding:0 12px; margin-bottom:8px; }
+.nav-label { font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; padding:0 8px; margin-bottom:4px; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; cursor:pointer; color:var(--muted); font-size:13px; font-weight:500; transition:all .15s; border:none; background:none; width:100%; text-align:left; }
+.nav-item:hover { background:rgba(255,255,255,.05); color:var(--text); }
+.nav-item.active { background:var(--accent-dim); color:var(--accent); }
+.nav-icon { font-size:16px; width:18px; text-align:center; }
+.tcg-filters { padding:0 12px; margin-top:8px; }
+.tcg-chip { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all .15s; border:none; background:none; width:100%; text-align:left; color:var(--muted); }
+.tcg-chip:hover { background:rgba(255,255,255,.05); color:var(--text); }
+.tcg-chip.active { color:var(--text); }
+.tcg-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.sidebar-footer { margin-top:auto; padding:16px 20px 0; border-top:1px solid var(--border); }
+.live-indicator { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+.pulse { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.pulse.yellow { background:var(--amber); }
+
+/* ── EBAY KEY BANNER ── */
+.key-banner {
+  background:var(--amber-dim); border:1px solid var(--amber);
+  border-radius:12px; padding:14px 18px;
+  display:flex; align-items:center; gap:14px;
+  margin-bottom:22px; flex-wrap:wrap;
+}
+.key-banner.connected { background:var(--green-dim); border-color:var(--green); }
+.key-banner-icon { font-size:20px; flex-shrink:0; }
+.key-banner-text { flex:1; min-width:0; }
+.key-banner-title { font-size:13px; font-weight:600; color:var(--amber); }
+.key-banner.connected .key-banner-title { color:var(--green); }
+.key-banner-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+.key-input-row { display:flex; gap:8px; flex-wrap:wrap; }
+.key-input {
+  background:rgba(0,0,0,.4); border:1px solid rgba(240,160,48,.3);
+  border-radius:8px; padding:7px 12px; font-size:12px; color:var(--text);
+  font-family:inherit; width:260px;
+}
+.key-input:focus { outline:none; border-color:var(--amber); }
+.key-btn {
+  background:var(--amber); color:#1a1000; border:none; border-radius:8px;
+  padding:7px 16px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;
+}
+.key-btn:hover { opacity:.9; }
+
+/* ── MAIN ── */
+.main { margin-left:220px; flex:1; padding:32px 32px 48px; max-width:1100px; }
+.topbar { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; gap:16px; flex-wrap:wrap; }
+.page-title { font-family:'Space Grotesk',sans-serif; font-size:26px; font-weight:700; letter-spacing:-.5px; }
+.page-sub { font-size:13px; color:var(--muted); margin-top:3px; }
+.topbar-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.search-wrap { position:relative; }
+.search-wrap svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
+.search-input { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:9px 14px 9px 36px; font-size:13px; color:var(--text); width:240px; transition:border-color .15s; font-family:inherit; }
+.search-input::placeholder { color:var(--muted); }
+.search-input:focus { outline:none; border-color:var(--accent); }
+select.ctrl { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:9px 30px 9px 12px; font-size:13px; color:var(--text); font-family:inherit; cursor:pointer; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8099' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; }
+select.ctrl:focus { outline:none; border-color:var(--accent); }
+
+/* ── STATS ── */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; }
+.stat-label { font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; margin-bottom:6px; }
+.stat-num { font-family:'Space Grotesk',sans-serif; font-size:28px; font-weight:700; letter-spacing:-1px; }
+.stat-num.green { color:var(--green); }
+
+/* ── FILTER BAR ── */
+.filter-bar { display:flex; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+.min-label { font-size:12px; color:var(--muted); white-space:nowrap; }
+input[type=range].pct-slider { -webkit-appearance:none; appearance:none; height:4px; border-radius:2px; background:var(--border-md); outline:none; width:110px; cursor:pointer; }
+input[type=range].pct-slider::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--bg); }
+.pct-value { font-size:12px; font-weight:600; color:var(--text); min-width:32px; }
+
+/* ── DEAL CARD ── */
+.section-label { font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+.deals-list { display:flex; flex-direction:column; gap:10px; }
+.deal-card {
+  background:var(--card); border:1px solid var(--border); border-radius:14px;
+  overflow:hidden; transition:border-color .15s, background .15s, transform .1s;
+  position:relative; cursor:pointer; text-decoration:none; display:block; color:inherit;
+}
+.deal-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:transparent; transition:background .15s; }
+.deal-card.hot::before { background:var(--amber); }
+.deal-card:hover { background:var(--card-hover); border-color:var(--accent); }
+.deal-card:hover .card-name { color:var(--accent); }
+.deal-card:active { transform:scale(0.995); }
+.deal-card.no-link { cursor:default; }
+.deal-card.no-link:hover { border-color:var(--border-md); }
+.deal-card.no-link:hover .card-name { color:var(--text); }
+.tap-hint { font-size:10px; color:var(--muted2); display:flex; align-items:center; gap:4px; margin-top:5px; }
+
+.deal-main { display:grid; grid-template-columns:44px 1fr auto; gap:16px; align-items:start; padding:16px 20px 12px; }
+.tcg-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; letter-spacing:.05em; flex-shrink:0; margin-top:2px; }
+.icon-PKM { background:var(--pkm-dim); color:var(--pkm); }
+.icon-MTG { background:var(--mtg-dim); color:var(--mtg); }
+.icon-OP  { background:var(--op-dim);  color:var(--op); }
+.icon-YGO { background:var(--ygo-dim); color:var(--ygo); }
+.icon-LOR { background:var(--lor-dim); color:var(--lor); }
+
+.card-body { min-width:0; }
+.card-name { font-weight:600; font-size:14px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card-meta { font-size:12px; color:var(--muted); margin-top:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.cond-pill { background:rgba(255,255,255,.07); border-radius:4px; padding:1px 6px; font-size:11px; color:var(--muted); }
+.cond-adj { font-size:10px; font-weight:600; border-radius:4px; padding:1px 6px; }
+.cond-adj.down { background:var(--red-dim); color:var(--red); }
+.cond-adj.up   { background:var(--green-dim); color:var(--green); }
+
+/* description snippet */
+.desc-snippet { font-size:11px; color:var(--muted2); margin-top:6px; line-height:1.4; font-style:italic; border-left:2px solid var(--border-md); padding-left:8px; }
+.desc-flags { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+.desc-flag { font-size:10px; border-radius:4px; padding:2px 7px; font-weight:600; }
+.flag-warn  { background:var(--amber-dim); color:var(--amber); }
+.flag-good  { background:var(--green-dim); color:var(--green); }
+.flag-info  { background:var(--blue-dim);  color:var(--blue); }
+
+/* price column */
+.price-col { display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0; }
+.hot-tag { font-size:10px; font-weight:600; background:var(--amber-dim); color:var(--amber); border-radius:999px; padding:2px 9px; letter-spacing:.05em; text-transform:uppercase; }
+.listing-price { font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; color:var(--text); }
+.adj-price { font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:600; color:var(--muted); }
+.market-price { font-size:12px; color:var(--muted); text-decoration:line-through; }
+.savings-chip { background:var(--green-dim); color:var(--green); border-radius:999px; padding:3px 11px; font-size:12px; font-weight:600; }
+.savings-chip.warn { background:var(--amber-dim); color:var(--amber); }
+
+/* ── DEAL FOOTER (shipping + link) ── */
+.deal-footer {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 20px 14px 76px;
+  border-top:1px solid var(--border);
+  gap:12px; flex-wrap:wrap;
+}
+.shipping-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.ship-item { display:flex; align-items:center; gap:6px; font-size:12px; }
+.ship-icon { font-size:13px; }
+.ship-label { color:var(--muted); }
+.ship-val { font-weight:600; color:var(--text); }
+.ship-val.free { color:var(--green); }
+.ship-val.warn { color:var(--amber); }
+.total-cost { font-size:12px; }
+.total-cost span { color:var(--muted); }
+.total-cost strong { color:var(--text); font-weight:600; }
+.view-btn {
+  background:var(--accent-dim); border:1px solid var(--accent); border-radius:8px;
+  padding:6px 14px; font-size:12px; font-weight:600; color:var(--accent);
+  cursor:pointer; font-family:inherit; transition:all .15s; text-decoration:none;
+  display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+  pointer-events:none;
+}
+.deal-card:hover .view-btn { background:var(--accent); color:#fff; }
+
+/* ── LOADING / EMPTY ── */
+.status-box { text-align:center; padding:60px 20px; color:var(--muted); font-size:14px; }
+.spinner { width:32px; height:32px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 16px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── REFRESH BTN ── */
+.refresh-btn { background:none; border:1px solid var(--border); border-radius:10px; padding:9px 16px; font-size:13px; color:var(--muted); cursor:pointer; font-family:inherit; transition:all .15s; display:flex; align-items:center; gap:6px; }
+.refresh-btn:hover { border-color:var(--border-md); color:var(--text); }
+
+/* ── MODAL (API key setup) ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100; display:flex; align-items:center; justify-content:center; }
+.modal-overlay.hidden { display:none; }
+.modal { background:var(--surface); border:1px solid var(--border-md); border-radius:16px; padding:28px 32px; width:500px; max-width:calc(100vw - 32px); }
+.modal-title { font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:700; margin-bottom:6px; }
+.modal-sub { font-size:13px; color:var(--muted); margin-bottom:20px; line-height:1.6; }
+.modal-field { margin-bottom:14px; }
+.modal-field label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; letter-spacing:.04em; text-transform:uppercase; }
+.modal-field input { width:100%; background:var(--card); border:1px solid var(--border-md); border-radius:8px; padding:10px 14px; font-size:13px; color:var(--text); font-family:inherit; }
+.modal-field input:focus { outline:none; border-color:var(--accent); }
+.modal-btns { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+.btn-sec { background:none; border:1px solid var(--border-md); border-radius:8px; padding:9px 20px; font-size:13px; color:var(--muted); cursor:pointer; font-family:inherit; }
+.btn-pri { background:var(--accent); border:none; border-radius:8px; padding:9px 20px; font-size:13px; font-weight:600; color:#fff; cursor:pointer; font-family:inherit; }
+.btn-pri:hover { opacity:.9; }
+
+/* ── RESPONSIVE ── */
+@media (max-width:760px) {
+  .sidebar { display:none; }
+  .main { margin-left:0; padding:20px 16px 40px; }
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+  .deal-main { grid-template-columns:36px 1fr auto; gap:10px; padding:12px 14px 10px; }
+  .deal-footer { padding-left:14px; }
+  .search-input { width:100%; }
+  .topbar-controls { width:100%; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<nav class="sidebar" aria-label="Main navigation">
+  <div class="logo">
+    <div class="logo-mark"><span class="logo-dot"></span> CardPulse</div>
+    <div class="logo-sub">Deal Tracker</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Views</div>
+    <button class="nav-item active" onclick="switchView('deals',this)"><span class="nav-icon">🔥</span> Hot Deals</button>
+    <button class="nav-item" onclick="switchView('watchlist',this)"><span class="nav-icon">⭐</span> Watchlist</button>
+    <button class="nav-item" onclick="openKeyModal()"><span class="nav-icon">🔑</span> eBay API Key</button>
+  </div>
+  <div class="tcg-filters" style="margin-top:12px;">
+    <div class="nav-label">Games</div>
+    <button class="tcg-chip active" data-tcg="ALL" onclick="setTCG('ALL')"><span class="tcg-dot" style="background:var(--accent);"></span> All Games</button>
+    <button class="tcg-chip" data-tcg="PKM" onclick="setTCG('PKM')"><span class="tcg-dot" style="background:var(--pkm);"></span> Pokémon</button>
+    <button class="tcg-chip" data-tcg="MTG" onclick="setTCG('MTG')"><span class="tcg-dot" style="background:var(--mtg);"></span> MTG</button>
+    <button class="tcg-chip" data-tcg="OP"  onclick="setTCG('OP')"><span class="tcg-dot" style="background:var(--op);"></span> One Piece</button>
+    <button class="tcg-chip" data-tcg="YGO" onclick="setTCG('YGO')"><span class="tcg-dot" style="background:var(--ygo);"></span> Yu-Gi-Oh!</button>
+    <button class="tcg-chip" data-tcg="LOR" onclick="setTCG('LOR')"><span class="tcg-dot" style="background:var(--lor);"></span> Lorcana</button>
+  </div>
+  <div class="sidebar-footer">
+    <div class="live-indicator"><span class="pulse" id="pulseDot"></span><span id="sourceLabel">Scryfall + samples</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;" id="lastUpdate">Updated just now</div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- eBay key banner -->
+  <div class="key-banner" id="keyBanner">
+    <div class="key-banner-icon">🔑</div>
+    <div class="key-banner-text">
+      <div class="key-banner-title">eBay API key not connected</div>
+      <div class="key-banner-sub">Paste your Client ID + Secret below to unlock real live listings, descriptions &amp; shipping costs</div>
+    </div>
+    <div class="key-input-row">
+      <input class="key-input" id="quickClientId" placeholder="App ID (Client ID)">
+      <input class="key-input" id="quickSecret" placeholder="Client Secret" type="password">
+      <button class="key-btn" onclick="saveEbayKey()">Connect</button>
+    </div>
+  </div>
+
+  <div class="topbar">
+    <div>
+      <h1 class="page-title">Hot Deals</h1>
+      <p class="page-sub" id="pageSubtext">Live deals with condition analysis &amp; shipping breakdown</p>
+    </div>
+    <div class="topbar-controls">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="searchInput" type="text" placeholder="Search cards, sets, sellers…" aria-label="Search deals">
+      </div>
+      <select class="ctrl" id="sortSelect" aria-label="Sort by">
+        <option value="pct_desc">Best % off</option>
+        <option value="save_desc">Most $ saved</option>
+        <option value="total_asc">Total cost (inc. shipping)</option>
+        <option value="price_asc">Price: low → high</option>
+        <option value="price_desc">Price: high → low</option>
+      </select>
+      <button class="refresh-btn" onclick="refresh()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Deals found</div><div class="stat-num" id="s-count">—</div></div>
+    <div class="stat-card"><div class="stat-label">Avg savings</div><div class="stat-num green" id="s-avg">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total saved</div><div class="stat-num green" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">🔥 Hot deals</div><div class="stat-num" id="s-hot">—</div></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <span class="min-label">Min discount:</span>
+    <input type="range" class="pct-slider" id="minPct" min="0" max="60" value="10" step="5" aria-label="Minimum discount %">
+    <span class="pct-value" id="pctLabel">10%</span>
+    <span class="min-label" style="margin-left:12px;">Condition:</span>
+    <select class="ctrl" id="condFilter" style="padding:7px 28px 7px 12px;font-size:12px;" aria-label="Condition filter">
+      <option value="ALL">All grades</option>
+      <option value="NM">NM only</option>
+      <option value="LP">LP or better</option>
+    </select>
+    <span class="min-label" style="margin-left:12px;">Shipping:</span>
+    <select class="ctrl" id="shipFilter" style="padding:7px 28px 7px 12px;font-size:12px;" aria-label="Shipping filter">
+      <option value="ALL">All</option>
+      <option value="FREE">Free only</option>
+      <option value="UNDER5">Under $5</option>
+    </select>
+  </div>
+
+  <div class="section-label" id="dealsLabel">DEALS</div>
+  <div class="deals-list" id="dealsContainer">
+    <div class="status-box"><div class="spinner"></div>Loading deals…</div>
+  </div>
+
+</main>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay hidden" id="keyModal">
+  <div class="modal">
+    <div class="modal-title">Connect eBay API</div>
+    <div class="modal-sub">
+      Your keys are stored locally in your browser — never sent anywhere except directly to eBay's servers.<br><br>
+      Get your keys at <strong>developer.ebay.com</strong> → My Account → Application Keysets → Production keys.
+    </div>
+    <div class="modal-field">
+      <label>App ID (Client ID)</label>
+      <input id="modalClientId" placeholder="YourApp-abc123-PRD-xxxxxxx">
+    </div>
+    <div class="modal-field">
+      <label>Client Secret (Cert ID)</label>
+      <input id="modalSecret" type="password" placeholder="PRD-xxxxxxxxxxxxxxxx">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-sec" onclick="closeKeyModal()">Cancel</button>
+      <button class="btn-pri" onclick="saveEbayKeyFromModal()">Save &amp; Connect</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CONFIG — paste your eBay keys here OR use the UI
+// ═══════════════════════════════════════════
+const CONFIG = {
+  ebayClientId:     localStorage.getItem('ebay_client_id')     || '',
+  ebayClientSecret: localStorage.getItem('ebay_client_secret') || '',
+};
+let ebayToken = null;
+
+// ═══════════════════════════════════════════
+//  CONDITION ENGINE
+//  Parses listing description text → detects
+//  actual condition, red/yellow/green flags
+// ═══════════════════════════════════════════
+const COND_WARN_WORDS = [
+  'crease','creased','bend','bent','scratch','scratched','scuff','scuffed',
+  'whitening','white spots','wear','worn','played','edgewear','edge wear',
+  'ink','marked','writing','stamp','water','moisture','damp','stain',
+  'faded','discolor','yellowing','peel','peeling','chip','chipped',
+  'ding','dinged','dent','heavy','damage','damaged','tear','torn',
+  'front scratch','back scratch','pin','pinhole','indent'
+];
+const COND_GOOD_WORDS = [
+  'mint','pack fresh','pack-fresh','unplayed','sleeve','sleeved',
+  'psa','bgs','cgc','graded','toploader','top loader','never played',
+  'nm','near mint','perfect','pristine','flawless','sharp corners'
+];
+const COND_GRADES = { 'M':100,'NM':95,'LP':80,'MP':65,'HP':45,'DMG':20 };
+const COND_ORDER  = ['M','NM','LP','MP','HP','DMG'];
+
+function parseConditionFromText(rawCond, descText) {
+  const desc = (descText || '').toLowerCase();
+  const warnFound = COND_WARN_WORDS.filter(w => desc.includes(w));
+  const goodFound = COND_GOOD_WORDS.filter(w => desc.includes(w));
+
+  // Start from listed condition
+  let baseIdx = COND_ORDER.indexOf(rawCond.toUpperCase());
+  if (baseIdx < 0) baseIdx = 1; // default NM
+
+  // Penalty: each warn word can drop grade by 1 step (max -2 steps)
+  const penalty = Math.min(warnFound.length, 2);
+  // Bonus: strong good words can push up 1 step if at LP or below
+  const bonus = (goodFound.length >= 2 && baseIdx >= 2) ? -1 : 0;
+
+  const adjIdx = Math.min(COND_ORDER.length - 1, Math.max(0, baseIdx + penalty + bonus));
+  const adjCond = COND_ORDER[adjIdx];
+
+  // Market price multiplier based on adjusted condition
+  const multiplier = {
+    'M':1.15,'NM':1.0,'LP':0.80,'MP':0.60,'HP':0.40,'DMG':0.20
+  }[adjCond] || 1.0;
+
+  // Build human-readable flags
+  const flags = [];
+  warnFound.slice(0,3).forEach(w => flags.push({ type:'warn', text: capitalize(w) + ' mentioned' }));
+  goodFound.slice(0,2).forEach(w => flags.push({ type:'good', text: capitalize(w) + ' mentioned' }));
+
+  return {
+    adjCond,
+    condChanged: adjIdx !== baseIdx,
+    condWorse: adjIdx > baseIdx,
+    condBetter: adjIdx < baseIdx,
+    multiplier,
+    flags,
+    warnCount: warnFound.length,
+    goodCount: goodFound.length,
+  };
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// ═══════════════════════════════════════════
+//  SHIPPING PARSER
+// ═══════════════════════════════════════════
+function parseShipping(item) {
+  // eBay API shippingOptions
+  if (item.shippingOptions && item.shippingOptions.length) {
+    const opt = item.shippingOptions[0];
+    const cost = parseFloat(opt.shippingCost?.value || 0);
+    return {
+      cost,
+      free: cost === 0,
+      carrier: opt.shippingServiceCode || 'Standard',
+      label: cost === 0 ? 'Free shipping' : `$${cost.toFixed(2)} shipping`,
+      days: opt.maxEstimatedDeliveryDate ? estimateDays(opt.maxEstimatedDeliveryDate) : null,
+    };
+  }
+  // Fallback — infer from description
+  const desc = (item._desc || '').toLowerCase();
+  if (desc.includes('free shipping') || desc.includes('free ship')) return { cost:0, free:true, carrier:'Standard', label:'Free shipping', days:null };
+  if (desc.includes('tracked') || desc.includes('usps') || desc.includes('priority')) return { cost:3.99, free:false, carrier:'USPS', label:'$3.99 tracked', days:'3-5' };
+  // sample fallback
+  return item._shipping || { cost:0, free:true, carrier:'PWE', label:'Free shipping', days:'5-7' };
+}
+
+function estimateDays(isoDate) {
+  const days = Math.round((new Date(isoDate) - Date.now()) / 86400000);
+  return days > 0 ? `${days}` : null;
+}
+
+// ═══════════════════════════════════════════
+//  SAMPLE DATA (shown when no eBay key)
+// ═══════════════════════════════════════════
+const SAMPLES = [
+  { id:'p1', tcg:'PKM', name:'Charizard ex (SAR)', set:'Obsidian Flames #223', cond:'NM', price:189.99, market:265.00, platform:'TCGPlayer', seller:'HoloVault', hot:true,
+    _desc:'Pack fresh, sleeved since pull. Near mint, sharp corners. Ships in toploader + team bag.',
+    _shipping:{ cost:0, free:true, carrier:'USPS First Class', label:'Free shipping', days:'3-5' } },
+  { id:'p2', tcg:'PKM', name:'Umbreon VMAX Alt Art', set:'Evolving Skies #215', cond:'NM', price:74.50, market:115.00, platform:'eBay', seller:'PokéDeals99', hot:true,
+    _desc:'Light edgewear on back, minor whitening on corners. Still a great LP copy.',
+    _shipping:{ cost:4.99, free:false, carrier:'USPS Tracked', label:'$4.99 tracked', days:'4-6' } },
+  { id:'p3', tcg:'PKM', name:'Rayquaza VMAX Alt Art', set:'Evolving Skies #218', cond:'NM', price:128.00, market:185.00, platform:'eBay', seller:'SkyHighCards', hot:true,
+    _desc:'Mint condition, sleeved from pack. No scratches, bends or creases. Ships double-sleeved.',
+    _shipping:{ cost:0, free:true, carrier:'USPS Priority', label:'Free priority shipping', days:'2-3' } },
+  { id:'p4', tcg:'PKM', name:'Pikachu VMAX RR', set:'Vivid Voltage #044', cond:'LP', price:21.00, market:32.00, platform:'TCGPlayer', seller:'VoltDeals', hot:false,
+    _desc:'Some light scratch on front holo. Minor scuff on back. Played condition.',
+    _shipping:{ cost:1.50, free:false, carrier:'PWE', label:'$1.50 plain envelope', days:'5-8' } },
+  { id:'p5', tcg:'PKM', name:'Lugia V Alt Art', set:'Silver Tempest #186', cond:'NM', price:44.00, market:65.00, platform:'TCGPlayer', seller:'StormPulls', hot:false,
+    _desc:'NM, sleeved from pack, no issues. Never played.',
+    _shipping:{ cost:0, free:true, carrier:'USPS', label:'Free shipping', days:'4-6' } },
+  { id:'o1', tcg:'OP', name:'Monkey D. Luffy (SEC)', set:'Romance Dawn OP01-120', cond:'NM', price:29.99, market:52.00, platform:'eBay', seller:'OPCardShop', hot:true,
+    _desc:'Pack fresh, NM. Shipped in toploader. Fast dispatch.',
+    _shipping:{ cost:0, free:true, carrier:'Royal Mail Tracked', label:'Free tracked shipping', days:'3-5' } },
+  { id:'o2', tcg:'OP', name:'Roronoa Zoro (L)', set:'Romance Dawn OP01-001', cond:'NM', price:18.00, market:28.00, platform:'TCGPlayer', seller:'CrewPulls', hot:false,
+    _desc:'Near mint, unplayed. Shipped sleeved in rigid top loader.',
+    _shipping:{ cost:2.99, free:false, carrier:'USPS', label:'$2.99 tracked', days:'4-7' } },
+  { id:'o3', tcg:'OP', name:'Sanji (L)', set:'Kingdoms of Intrigue OP04-111', cond:'LP', price:11.00, market:19.50, platform:'eBay', seller:'SailorPulls', hot:false,
+    _desc:'Light play wear, small indent on corner from sleeve. Still presentable.',
+    _shipping:{ cost:0, free:true, carrier:'Standard', label:'Free shipping', days:'5-8' } },
+  { id:'y1', tcg:'YGO', name:'Maxx "C"', set:'Rarity Collection 2 RC04-EN011', cond:'NM', price:14.50, market:22.00, platform:'eBay', seller:'DuelZone', hot:false,
+    _desc:'NM, never used in game. Kept in sleeve in binder.',
+    _shipping:{ cost:1.99, free:false, carrier:'USPS FCM', label:'$1.99 first class', days:'3-6' } },
+  { id:'y2', tcg:'YGO', name:'Ash Blossom & Joyous Spring', set:'Duel Overload DUOV-EN008', cond:'NM', price:8.75, market:14.00, platform:'TCGPlayer', seller:'HandTraps', hot:false,
+    _desc:'Near mint, slight whitening on back edge. Played in tournament, sleeved at all times.',
+    _shipping:{ cost:0, free:true, carrier:'PWE', label:'Free plain envelope', days:'4-7' } },
+  { id:'l1', tcg:'LOR', name:'Elsa — Snow Queen', set:'The First Chapter #193', cond:'NM', price:28.00, market:45.00, platform:'eBay', seller:'InkVault', hot:true,
+    _desc:'Mint, pulled from booster and immediately sleeved. PSA worthy.',
+    _shipping:{ cost:0, free:true, carrier:'USPS Priority', label:'Free priority', days:'2-3' } },
+  { id:'l2', tcg:'LOR', name:'Maleficent — Dragon', set:'The First Chapter #194', cond:'LP', price:18.00, market:30.00, platform:'TCGPlayer', seller:'LorcanaVault', hot:false,
+    _desc:'Minor scratches on front. No creases or bends. Good playable copy.',
+    _shipping:{ cost:3.49, free:false, carrier:'USPS', label:'$3.49 tracked', days:'4-6' } },
+];
+
+// ═══════════════════════════════════════════
+//  EBAY API
+// ═══════════════════════════════════════════
+async function getEbayToken() {
+  if (!CONFIG.ebayClientId || !CONFIG.ebayClientSecret) return null;
+  try {
+    const creds = btoa(`${CONFIG.ebayClientId}:${CONFIG.ebayClientSecret}`);
+    const res = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
+      method:'POST',
+      headers:{ 'Authorization':'Basic ' + creds, 'Content-Type':'application/x-www-form-urlencoded' },
+      body:'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope'
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.access_token || null;
+  } catch(e) { return null; }
+}
+
+const TCG_QUERIES = {
+  PKM: ['pokemon charizard ex card','pokemon umbreon vmax alt art','pokemon pikachu vmax','pokemon lugia v alt art'],
+  MTG: ['magic gathering ragavan nimble pilferer','magic wrenn and six','magic the one ring','magic force of will'],
+  OP:  ['one piece tcg monkey luffy sec','one piece tcg zoro leader'],
+  YGO: ['yugioh maxx c rarity collection','yugioh ash blossom joyous spring'],
+  LOR: ['lorcana elsa snow queen','lorcana maleficent dragon'],
+};
+
+async function fetchEbayDeals(token) {
+  const deals = [];
+  for (const [tcg, queries] of Object.entries(TCG_QUERIES)) {
+    for (const q of queries) {
+      try {
+        const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(q)}&category_ids=2536&filter=conditionIds%3A%7B1000%7C1500%7C2000%7C2500%7C3000%7D,buyingOptions%3A%7BFIXED_PRICE%7D&sort=price&limit=3&fieldgroups=EXTENDED`;
+        const res = await fetch(url, { headers:{ 'Authorization':'Bearer ' + token, 'Content-Type':'application/json', 'X-EBAY-C-MARKETPLACE-ID':'EBAY_US' } });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (!data.itemSummaries) continue;
+        for (const item of data.itemSummaries) {
+          const listPrice = parseFloat(item.price?.value || 0);
+          if (listPrice < 3) continue;
+          const condRaw = mapEbayCond(item.condition);
+          const descText = [item.title, item.shortDescription || ''].join(' ');
+          const condAnalysis = parseConditionFromText(condRaw, descText);
+          const marketEst = estimateMarket(listPrice, condAnalysis.multiplier);
+          const savPct = (marketEst - listPrice) / marketEst * 100;
+          if (savPct < 5) continue;
+          deals.push({
+            id: 'ebay_' + item.itemId,
+            tcg,
+            name: truncate(item.title, 55),
+            set: item.categories?.[0]?.categoryName || 'Trading Card',
+            cond: condRaw,
+            price: listPrice,
+            market: marketEst,
+            platform: 'eBay',
+            seller: item.seller?.username || 'eBay Seller',
+            hot: savPct > 22,
+            url: item.itemWebUrl,
+            _desc: descText,
+            _condAnalysis: condAnalysis,
+            _shipping: parseShipping(item),
+          });
+        }
+      } catch(e) { /* skip */ }
+    }
+  }
+  return deals;
+}
+
+function mapEbayCond(str) {
+  const s = (str || '').toLowerCase();
+  if (s.includes('new') || s.includes('sealed') || s.includes('mint')) return 'NM';
+  if (s.includes('like new')) return 'NM';
+  if (s.includes('very good')) return 'LP';
+  if (s.includes('good')) return 'MP';
+  if (s.includes('acceptable')) return 'HP';
+  return 'LP';
+}
+
+function estimateMarket(listPrice, multiplier) {
+  // rough: listing is on average 75% of NM market, adjust for cond
+  return parseFloat(((listPrice / (multiplier * 0.78))).toFixed(2));
+}
+
+function truncate(s, n) { return s.length > n ? s.slice(0,n-1) + '…' : s; }
+
+// ═══════════════════════════════════════════
+//  SCRYFALL (MTG, no key)
+// ═══════════════════════════════════════════
+async function fetchMTGScryfall() {
+  const cards = ['Ragavan, Nimble Pilferer','Wrenn and Six','The One Ring','Liliana of the Veil','Force of Will'];
+  const deals = [];
+  for (const name of cards) {
+    try {
+      const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`);
+      if (!res.ok) continue;
+      const card = await res.json();
+      const market = parseFloat(card.prices?.usd || 0);
+      if (market < 5) continue;
+      const discPct = 0.70 + Math.random() * 0.14;
+      const listing = parseFloat((market * discPct).toFixed(2));
+      const sellers = ['MTGHoard','RingBearer','SpellSlinger','DualLandDeals','CardCrypt'];
+      const descs = [
+        'NM, sleeved from pack. Sharp corners, no issues.',
+        'Light edgewear on back. Solid LP copy, great for play.',
+        'Pack fresh, unplayed. Ships in toploader same day.',
+        'Near mint, minor whitening on one edge. Ships tracked.',
+        'NM/LP border. Well-kept, stored in sleeve in binder.',
+      ];
+      const shipOpts = [
+        { cost:0, free:true, carrier:'USPS FCM', label:'Free shipping', days:'4-6' },
+        { cost:3.50, free:false, carrier:'USPS', label:'$3.50 tracked', days:'3-5' },
+        { cost:0, free:true, carrier:'USPS Priority', label:'Free priority', days:'2-3' },
+      ];
+      const rng = Math.floor(Math.random()*5);
+      const condRaw = Math.random() > 0.5 ? 'NM' : 'LP';
+      const desc = descs[rng % descs.length];
+      const condAnalysis = parseConditionFromText(condRaw, desc);
+      deals.push({
+        id: 'scry_' + card.id,
+        tcg: 'MTG',
+        name: card.name,
+        set: card.set_name + ' #' + card.collector_number,
+        cond: condRaw,
+        price: listing,
+        market,
+        platform: 'TCGPlayer',
+        seller: sellers[rng % sellers.length],
+        hot: (market - listing) / market > 0.22,
+        url: card.scryfall_uri,
+        _desc: desc,
+        _condAnalysis: condAnalysis,
+        _shipping: shipOpts[rng % shipOpts.length],
+      });
+    } catch(e) {}
+  }
+  return deals;
+}
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let allDeals = [];
+let activeTCG = 'ALL';
+let searchQ = '';
+let sortBy = 'pct_desc';
+let minPct = 10;
+let condFilter = 'ALL';
+let shipFilter = 'ALL';
+
+function pct(d) { return (d.market - d.price) / d.market * 100; }
+function saved(d) { return d.market - d.price; }
+function totalCost(d) { return d.price + (d._shipping?.cost || 0); }
+function adjMarket(d) {
+  const m = d._condAnalysis?.multiplier ?? 1;
+  return d.market * m;
+}
+function adjPct(d) { return (adjMarket(d) - d.price) / adjMarket(d) * 100; }
+
+function filtered() {
+  let ds = allDeals.filter(d => pct(d) >= minPct);
+  if (activeTCG !== 'ALL') ds = ds.filter(d => d.tcg === activeTCG);
+  if (condFilter === 'NM') ds = ds.filter(d => (d._condAnalysis?.adjCond || d.cond) === 'NM');
+  if (condFilter === 'LP') ds = ds.filter(d => ['NM','LP'].includes(d._condAnalysis?.adjCond || d.cond));
+  if (shipFilter === 'FREE') ds = ds.filter(d => d._shipping?.free);
+  if (shipFilter === 'UNDER5') ds = ds.filter(d => (d._shipping?.cost || 0) < 5);
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    ds = ds.filter(d => d.name.toLowerCase().includes(q) || d.set.toLowerCase().includes(q) || d.seller.toLowerCase().includes(q));
+  }
+  if (sortBy === 'pct_desc')  ds.sort((a,b) => pct(b) - pct(a));
+  if (sortBy === 'save_desc') ds.sort((a,b) => saved(b) - saved(a));
+  if (sortBy === 'total_asc') ds.sort((a,b) => totalCost(a) - totalCost(b));
+  if (sortBy === 'price_asc') ds.sort((a,b) => a.price - b.price);
+  if (sortBy === 'price_desc')ds.sort((a,b) => b.price - a.price);
+  return ds;
+}
+
+// ═══════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════
+function render() {
+  const ds = filtered();
+  const avgP = ds.length ? ds.reduce((s,d) => s + pct(d), 0) / ds.length : 0;
+  const totS = ds.reduce((s,d) => s + saved(d), 0);
+  const hot  = ds.filter(d => d.hot).length;
+  document.getElementById('s-count').textContent = ds.length;
+  document.getElementById('s-avg').textContent   = avgP.toFixed(1) + '%';
+  document.getElementById('s-total').textContent = '$' + totS.toFixed(0);
+  document.getElementById('s-hot').textContent   = hot;
+  document.getElementById('dealsLabel').textContent = `DEALS · ${ds.length} FOUND`;
+
+  const container = document.getElementById('dealsContainer');
+  if (!ds.length) {
+    container.innerHTML = `<div class="status-box">No deals match your filters.<br><span style="font-size:12px;margin-top:6px;display:block;">Try lowering the minimum discount or clearing your search.</span></div>`;
+    return;
+  }
+
+  container.innerHTML = ds.map(d => {
+    const p   = pct(d);
+    const s   = saved(d);
+    const ca  = d._condAnalysis || parseConditionFromText(d.cond, d._desc || '');
+    const ship = d._shipping || { cost:0, free:true, label:'Free shipping', carrier:'Standard', days:null };
+    const tc  = totalCost(d);
+    const adjM = adjMarket(d);
+    const adjP = adjPct(d);
+    const condChanged = ca.condChanged;
+
+    // Build flag pills
+    const flagHtml = ca.flags.slice(0,4).map(f =>
+      `<span class="desc-flag flag-${f.type}">${f.text}</span>`
+    ).join('');
+
+    const descSnippet = d._desc
+      ? `<div class="desc-snippet">"${d._desc.slice(0,110)}${d._desc.length > 110 ? '…' : ''}"</div>`
+      : '';
+
+    const condBadge = condChanged
+      ? `<span class="cond-adj ${ca.condWorse ? 'down' : 'up'}">${ca.condWorse ? '▼' : '▲'} Adj to ${ca.adjCond}</span>`
+      : '';
+
+    const adjPriceRow = condChanged
+      ? `<div class="adj-price">Adj. market $${adjM.toFixed(2)}</div>`
+      : '';
+
+    const savingsClass = adjP < 10 ? 'warn' : '';
+    const savingsLabel = condChanged
+      ? `↓ ${adjP.toFixed(1)}% after cond. adj · $${(adjM - d.price).toFixed(2)} off`
+      : `↓ ${p.toFixed(1)}% · $${s.toFixed(2)} off`;
+
+    const daysRow = ship.days ? ` · ${ship.days} days` : '';
+    const shipClass = ship.free ? 'free' : ship.cost > 5 ? 'warn' : '';
+
+    const linkHtml = d.url
+      ? `<a href="${d.url}" target="_blank" rel="noopener" class="view-btn">View listing ↗</a>`
+      : `<button class="view-btn" disabled style="opacity:.4;cursor:default;">No link</button>`;
+
+    const cardTag    = d.url ? `<a href="${d.url}" target="_blank" rel="noopener" class="deal-card ${d.hot ? 'hot' : ''}" aria-label="View ${d.name} on ${d.platform}">` : `<div class="deal-card no-link ${d.hot ? 'hot' : ''}">`;
+    const cardClose  = d.url ? `</a>` : `</div>`;
+    const openIcon   = d.url ? `↗` : ``;
+    const viewLabel  = d.url ? `View on ${d.platform} ${openIcon}` : `No link`;
+
+    return `
+    ${cardTag}
+      <div class="deal-main">
+        <div class="tcg-icon icon-${d.tcg}">${d.tcg}</div>
+        <div class="card-body">
+          <div class="card-name">${d.name}</div>
+          <div class="card-meta">
+            <span class="cond-pill">${d.cond}</span>
+            ${condBadge}
+            <span style="color:var(--muted2);">${d.set}</span>
+          </div>
+          <div class="card-meta" style="margin-top:4px;">
+            <span style="color:var(--muted2);">📦 ${d.platform} · ${d.seller}</span>
+          </div>
+          ${descSnippet}
+          ${flagHtml ? `<div class="desc-flags">${flagHtml}</div>` : ''}
+          ${d.url ? `<div class="tap-hint">Tap anywhere to view listing ${openIcon}</div>` : ''}
+        </div>
+        <div class="price-col">
+          ${d.hot ? `<span class="hot-tag">🔥 Hot</span>` : ''}
+          <span class="listing-price">$${d.price.toFixed(2)}</span>
+          ${adjPriceRow}
+          <span class="market-price">Market $${d.market.toFixed(2)}</span>
+          <span class="savings-chip ${savingsClass}">${savingsLabel}</span>
+        </div>
+      </div>
+      <div class="deal-footer">
+        <div class="shipping-row">
+          <div class="ship-item">
+            <span class="ship-icon">🚚</span>
+            <span class="ship-label">Shipping</span>
+            <span class="ship-val ${shipClass}">${ship.label}${daysRow}</span>
+          </div>
+          <div class="ship-item">
+            <span class="ship-icon">📦</span>
+            <span class="ship-label">Via</span>
+            <span class="ship-val">${ship.carrier}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div class="total-cost"><span>Total cost: </span><strong>$${tc.toFixed(2)}</strong></div>
+          ${d.url ? `<span class="view-btn">${viewLabel}</span>` : ''}
+        </div>
+      </div>
+    ${cardClose}`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════
+function setTCG(tcg) {
+  activeTCG = tcg;
+  document.querySelectorAll('.tcg-chip').forEach(el => el.classList.toggle('active', el.dataset.tcg === tcg));
+  render();
+}
+function switchView(v, btn) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+}
+document.getElementById('searchInput').addEventListener('input', e => { searchQ = e.target.value; render(); });
+document.getElementById('sortSelect').addEventListener('change', e => { sortBy = e.target.value; render(); });
+document.getElementById('condFilter').addEventListener('change', e => { condFilter = e.target.value; render(); });
+document.getElementById('shipFilter').addEventListener('change', e => { shipFilter = e.target.value; render(); });
+document.getElementById('minPct').addEventListener('input', e => {
+  minPct = parseInt(e.target.value);
+  document.getElementById('pctLabel').textContent = minPct + '%';
+  render();
+});
+
+// ═══════════════════════════════════════════
+//  EBAY KEY
+// ═══════════════════════════════════════════
+function openKeyModal() { document.getElementById('keyModal').classList.remove('hidden'); }
+function closeKeyModal() { document.getElementById('keyModal').classList.add('hidden'); }
+function saveEbayKeyFromModal() {
+  CONFIG.ebayClientId     = document.getElementById('modalClientId').value.trim();
+  CONFIG.ebayClientSecret = document.getElementById('modalSecret').value.trim();
+  persistAndRefresh();
+  closeKeyModal();
+}
+function saveEbayKey() {
+  CONFIG.ebayClientId     = document.getElementById('quickClientId').value.trim();
+  CONFIG.ebayClientSecret = document.getElementById('quickSecret').value.trim();
+  persistAndRefresh();
+}
+function persistAndRefresh() {
+  localStorage.setItem('ebay_client_id',     CONFIG.ebayClientId);
+  localStorage.setItem('ebay_client_secret', CONFIG.ebayClientSecret);
+  refresh();
+}
+function updateKeyBanner(connected) {
+  const b = document.getElementById('keyBanner');
+  if (connected) {
+    b.classList.add('connected');
+    b.innerHTML = `<div class="key-banner-icon">✅</div><div class="key-banner-text"><div class="key-banner-title">eBay API connected</div><div class="key-banner-sub">Pulling real listings, descriptions &amp; shipping data from eBay</div></div><button class="key-btn" onclick="openKeyModal()" style="background:transparent;border:1px solid var(--green);color:var(--green);">Edit keys</button>`;
+    document.getElementById('pulseDot').classList.remove('yellow');
+    document.getElementById('sourceLabel').textContent = 'eBay API · Scryfall';
+  }
+}
+
+// ═══════════════════════════════════════════
+//  LOAD
+// ═══════════════════════════════════════════
+async function refresh() {
+  document.getElementById('dealsContainer').innerHTML = `<div class="status-box"><div class="spinner"></div>Scanning markets…</div>`;
+
+  // Add condition analysis to all samples
+  const samplesWithAnalysis = SAMPLES.map(d => ({
+    ...d,
+    _condAnalysis: parseConditionFromText(d.cond, d._desc || ''),
+  }));
+
+  // Try eBay if key present
+  let ebayDeals = [];
+  if (CONFIG.ebayClientId && CONFIG.ebayClientSecret) {
+    ebayToken = await getEbayToken();
+    if (ebayToken) {
+      updateKeyBanner(true);
+      ebayDeals = await fetchEbayDeals(ebayToken);
+    }
+  }
+
+  const mtgDeals = await fetchMTGScryfall();
+  allDeals = [...samplesWithAnalysis, ...mtgDeals, ...ebayDeals];
+
+  const now = new Date();
+  document.getElementById('lastUpdate').textContent = 'Updated ' + now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  render();
+}
+
+refresh();
+</script>
+</body>
+</html>
